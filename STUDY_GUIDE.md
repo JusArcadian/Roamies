@@ -350,6 +350,30 @@ catch (err) {
 
 ---
 
+## Chapter 14: Rebranding 64 spots safely (find-and-replace with rules)
+
+**Like you're 5:** we wanted to swap every "Roamies" sticker for a "Nora" sticker, but some stickers *must* stay: Ken's name tag, the link to his code and the file paths.
+
+A blind "replace all" would break things. So the script used **rules**:
+1. **Skip comments** (lines starting with `//`): they're notes for programmers, not the screen.
+2. **Protect a keep-list:** `KenKaiii/Roamies` (his GitHub), `Creator of Roamies` (credit), `aboutRoamies` (a function name; renaming it would break the code that calls it), `Roamies.app` (a Mac file path).
+3. **Whole words only:** `\bRoamies\b` matches "Roamies" but not "aboutRoamies".
+
+**The trick for protecting words:** swap each keep-list phrase for a placeholder (like `#0#`), replace "Roamies" everywhere, then swap the placeholders back.
+
+**A mistake I made, then fixed:** the sentence "Sir built you from Roamies" became "built you from Nora" because it wasn't on the keep-list. Always **read the diff** (the list of changed lines) after a big replace.
+
+**Same apostrophe bug as Chapter 8:** "don't" and "he'd" inside `'single quotes'` broke the code again. `node --check` caught it before you ever ran it. That's why I run it after every edit.
+
+### Two models at once (voice speed)
+```js
+const cpuReady = () => (cpuTts ??= KokoroTTS.from_pretrained(..., { device: 'cpu' }));
+```
+- `??=` means "only if it's empty": load the CPU copy **once**, then reuse it.
+- It starts loading in the background when the voice server starts, so it's ready the moment the GPU trips. The GPU still does every sentence it *can* do.
+
+---
+
 ## Glossary
 
 | Word | Simple meaning |

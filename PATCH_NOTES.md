@@ -5,6 +5,30 @@ Backups of the files before each change are in `backups/`.
 
 ---
 
+## v0.6 "Nora, everywhere" (2026-11-13), Path A: full rebrand
+
+### Features
+- **"Roamies" → "Nora" everywhere you see it:** panel title, Quit button, tray tooltip and menu ("Quit Nora", "Restart Nora"), window titles, the setup guide, her own messages, update and error messages (64 spots). Ken's credit stays: the About section ("Creator of Roamies", source code link) and the AGPL license, as required.
+- **"Sir" only now and then.** Most replies use no form of address, sometimes "Sir", once in a while your name. No nicknames.
+- **She learns your real name.** She knows "terre" is just your Windows account name, so if she doesn't know your name yet, she'll ask once what you'd like to be called and remember it.
+
+### Buffs
+- **Faster voice:** v0.5.1 switched her whole voice to the CPU after one GPU failure (about 1.0–1.6x, slow). Now she keeps the **GPU voice** and loads a **CPU backup in the background**; only sentences the GPU can't handle use the CPU.
+
+### Nerfs
+- "Open at login" is now saved as **Nora** in Windows. If you'd turned it on before, turn it on again in the panel.
+
+### Your test results (v0.5.1)
+- Spoken answers work ✅. CPU-only voice: `5326 ms for 3.4 s (1.58x)`, `4991 ms for 5.3 s (0.95x)`, too slow, hence the buff above.
+
+### Files changed
+- `panel/index.html`, `panel/panel.js`, `onboarding/index.html`, `onboarding/onboarding.js`, `sidecar/about.mjs`, `sidecar/sidekick.mjs`, `src-tauri/src/main.rs`, `nora-voice/server.mjs`
+
+### Backup
+- `backups/2026-11-13_12-rebrand-and-voice-speed/`
+
+---
+
 ## v0.5.1 "Never silent" (2026-11-13)
 
 ### Bugs

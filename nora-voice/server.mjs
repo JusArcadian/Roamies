@@ -40,6 +40,7 @@ console.log('[nora-voice] Loading Kokoro... (first run downloads the model, give
 loadFast('nora-voice', (opts) => KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', opts))
   .then((model) => {
     tts = model;
+    if (SETTINGS.gpu) cpuReady().catch(() => {}); // warm up the CPU backup now, so it's instant when needed
     console.log(`[nora-voice] Ready. Nora is listening on http://${HOST}:${PORT}`);
     // One-click start: open Nora's app now that her voice is ready. If it's already open, Windows just brings it up.
     if (SETTINGS.openApp && existsSync(APP)) { spawn(APP, [], { detached: true, stdio: 'ignore' }).unref(); console.log('[nora-voice] Opening Nora...'); }
@@ -50,15 +51,15 @@ loadFast('nora-voice', (opts) => KokoroTTS.from_pretrained('onnx-community/Kokor
 
 // If the GPU chokes on a sentence (DirectML can't run one of Kokoro's steps for some sentences), switch her voice
 // to the CPU for good and say that sentence again, so she never goes silent.
-let onCpu = false;
+// v0.6: keep BOTH: the GPU voice for speed, and a CPU copy (loaded in the background at start) for the sentences the
+// GPU can't do. Only those sentences use the CPU; everything else stays fast.
+let cpuTts = null;
+const cpuReady = () => (cpuTts ??= KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', { device: 'cpu', dtype: 'q8' }));
 async function speak(text, voice) {
   try { return await tts.generate(text, { voice }); }
   catch (err) {
-    if (onCpu) throw err;
-    console.log(`[nora-voice] GPU failed on a sentence (${String(err.message).slice(0, 60)}...), switching to the CPU`);
-    tts = await KokoroTTS.from_pretrained('onnx-community/Kokoro-82M-v1.0-ONNX', { device: 'cpu', dtype: 'q8' });
-    onCpu = true;
-    return tts.generate(text, { voice });
+    console.log(`[nora-voice] GPU skipped a sentence (${String(err.message).slice(0, 50)}...), using the CPU for it`);
+    return (await cpuReady()).generate(text, { voice });
   }
 }
 
