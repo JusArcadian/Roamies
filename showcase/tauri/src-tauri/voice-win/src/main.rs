@@ -144,6 +144,9 @@ const READ_EVERY: f64 = 0.8;
 // Parakeet makes up words ("Thank you.") from silence, so a take is only read once the mic heard a voice:
 // about -49 dBFS, above room noise and below quiet speech.
 const SPEECH_LEVEL: f64 = 0.15;
+// NORA: a fan or AC hums above the fixed 0.2 "voice" line, so hands-free never heard a pause. The helper now
+// learns the room's hum (noise_floor) and only counts sound this much louder than it (0.15 = about 6 dB) as voice.
+const ABOVE_FLOOR: f64 = 0.15;
 
 struct Voice {
     phase: Phase,
@@ -153,6 +156,7 @@ struct Voice {
     heard_at: f64,
     voice_at: f64,
     level_at: f64,
+    noise_floor: f64,
     released_at: Option<f64>,
     blocked: bool,
     prev_chord: bool,
@@ -186,6 +190,7 @@ impl Voice {
             heard_at: 0.0,
             voice_at: 0.0,
             level_at: 0.0,
+            noise_floor: 1.0,
             released_at: None,
             blocked: false,
             prev_chord: false,
@@ -443,7 +448,13 @@ impl Voice {
 
     fn on_level(&mut self, v: f64) {
         let now = self.now();
-        if v > 0.2 {
+        // Learn the room: drop to any quieter level at once, creep up slowly (so speech barely moves it).
+        if v < self.noise_floor {
+            self.noise_floor = v;
+        } else {
+            self.noise_floor += (v - self.noise_floor) * 0.0015;
+        }
+        if v > (self.noise_floor + ABOVE_FLOOR).max(0.2) {
             self.voice_at = now;
         }
         if v > SPEECH_LEVEL && self.phase != Phase::Idle {

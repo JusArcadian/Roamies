@@ -993,11 +993,40 @@ A drawing stays until the user clears it or the window changes; your next drawin
       execute: async () => { showList(); return 'The list is on screen.'; },
     },
     {
+      // NORA: "status report" / "systems check". Read-only: it only looks, it never changes anything.
+      name: 'status_report', description: "Nora's systems check of this PC: CPU, memory, NVIDIA GPU, main drive, internet, and whether Nora's voice and ears (the nora-voice window) are running. Use for 'status report', 'systems check', 'diagnostics', 'how's my PC doing'.",
+      parameters: z.object({}),
+      execute: async () => statusReport(),
+    },
+    {
       name: 'list_commitments', description: "List the open commitments you're keeping track of.",
       parameters: z.object({}),
       execute: async () => commitmentsText() || 'Nothing open.',
     },
   ];
+
+  // ---------- NORA: status report ----------
+  async function statusReport() {
+    const run = (cmd, args) => new Promise((ok) => execFile(cmd, args, { timeout: 4000, windowsHide: true }, (e, out) => ok(e ? '' : String(out).trim())));
+    const gb = (b) => (b / 1024 ** 3).toFixed(1);
+    // CPU: compare the CPU's busy time now and half a second later.
+    const tick = () => os.cpus().reduce((a, c) => { const t = c.times; a.idle += t.idle; a.all += t.user + t.nice + t.sys + t.idle + t.irq; return a; }, { idle: 0, all: 0 });
+    const c1 = tick(); await new Promise((r) => setTimeout(r, 500)); const c2 = tick();
+    const cpu = Math.round(100 * (1 - (c2.idle - c1.idle) / Math.max(1, c2.all - c1.all)));
+    const lines = [`CPU: ${cpu}% busy (${os.cpus().length} threads, ${os.cpus()[0]?.model?.trim() ?? 'unknown'})`];
+    lines.push(`Memory: ${gb(os.totalmem() - os.freemem())} of ${gb(os.totalmem())} GB used`);
+    const gpu = await run('nvidia-smi', ['--query-gpu=name,temperature.gpu,utilization.gpu,memory.used,memory.total', '--format=csv,noheader,nounits']);
+    if (gpu) { const [n, temp, util, used, total] = gpu.split('\n')[0].split(',').map((s) => s.trim()); lines.push(`GPU: ${n}, ${temp} C, ${util}% busy, ${used} of ${total} MB video memory`); }
+    else lines.push('GPU: no reading (nvidia-smi not found)');
+    try { const s = await fs.statfs(os.homedir()); lines.push(`Main drive: ${gb(s.bavail * s.bsize)} GB free of ${gb(s.blocks * s.bsize)} GB`); } catch { /* skip */ }
+    const t0 = Date.now();
+    try { await fetch('https://1.1.1.1', { method: 'HEAD', signal: AbortSignal.timeout(3000) }); lines.push(`Internet: online, ${Date.now() - t0} ms round trip`); }
+    catch { lines.push('Internet: offline or very slow'); }
+    try { const r = await fetch('http://127.0.0.1:3900/health', { signal: AbortSignal.timeout(1500) }); lines.push(`Voice and ears (nora-voice): ${r.ok ? 'online' : 'starting'}`); }
+    catch { lines.push('Voice and ears (nora-voice): offline (start-nora-voice.bat is not running)'); }
+    lines.push(`PC up for ${Math.floor(os.uptime() / 3600)} h ${Math.floor((os.uptime() % 3600) / 60)} min`);
+    return lines.join('\n');
+  }
 
   // What's in front, for the live state. Quick and never fails: '' if the helper is missing, slow or denied.
   async function whereNow() {

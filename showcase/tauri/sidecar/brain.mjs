@@ -83,7 +83,7 @@ export function transcript(messages, name = 'User', clean = (t) => t) {
   return lines.join('\n');
 }
 
-const FACT_RULES = (name) => `Facts are lasting things about ${name} worth knowing in every future conversation: who they are and what they do, their projects, goals, channels, apps and tools, the people they mention (and who those are), their preferences and how they like to work.
+const FACT_RULES = (name) => `Facts are lasting things about ${name} worth knowing in every future conversation: who they are and what they do, their projects, goals, channels, apps and tools, the people they mention (and who those are), their preferences and how they like to work, and how they talk: slang, nicknames for things and phrases they use, with what they mean ("${name} says 'run it back' to mean try again").
 - Only what ${name} said themselves or clearly showed. Nothing guessed, nothing the assistant said or did.
 - Not small talk, passing moods, questions they asked, one-off tasks, or anything tied to a date or time (reminders and commitments are kept elsewhere).
 - Never secrets: no passwords, keys, codes, card, bank or account numbers.

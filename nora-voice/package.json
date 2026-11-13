@@ -1,0 +1,16 @@
+{
+  "name": "nora-voice",
+  "version": "1.0.0",
+  "description": "Nora's local Kokoro voice server for Roamies (speaks the VoiceStudio protocol on 127.0.0.1:3900)",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node server.mjs"
+  },
+  "dependencies": {
+    "@huggingface/transformers": "^3.5.1",
+    "@picovoice/pvrecorder-node": "^1.2.8",
+    "kokoro-js": "^1.2.1",
+    "ws": "^8.18.0"
+  }
+}

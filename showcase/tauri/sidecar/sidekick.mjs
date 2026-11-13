@@ -14,9 +14,10 @@ import {
   signOutOfClaudeCode, storageKeyProvider,
 } from '@kenkaiiii/gg-core';
 import { execFile, execFileSync } from 'node:child_process';
-import { createHash } from 'node:crypto';
+import { createHash, randomBytes } from 'node:crypto';
+import http from 'node:http';
 import fs from 'node:fs/promises';
-import { existsSync, readFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { createInterface } from 'node:readline';
@@ -115,7 +116,7 @@ const sizeNow = () => (SIZES.some(([s]) => s === config.size) ? config.size : 'd
 // voice, it's the one Gemini voice the user picked, whatever the look.)
 const LOOKS = [
   ['classic', 'Roamie', DEFAULT_VOICE],
-  ['jarvis', 'JARVIS', 'e13fa398a7f445a685316a3de6089ce7'],
+  ['jarvis', 'Nora', 'e13fa398a7f445a685316a3de6089ce7'],
   ['anime', 'Anime Girl', 'd8f3b4c1199f4568a767ec54112d2b17'],
   ['sarah', 'Sarah', '933563129e564b19a115bedd57b7406a'],
   ['adrian', 'Adrian', 'bf322df2096a46f18c579d0baa36f41d'],
@@ -128,7 +129,7 @@ const studioVoice = () => config.studioVoices?.[config.look] ?? null;
 // Its name is its look's: Roamie, JARVIS, Anime Girl, Sarah, Adrian or Rita X. Roamies is the app.
 const lookName = () => (LOOKS.find(([id]) => id === config.look) ?? LOOKS[0])[1];
 // What each says when it's picked, in its own voice (Settings and the setup guide show the same words).
-const LOOK_GREETINGS = { classic: 'Classic me!', jarvis: 'At your service.', anime: 'Yay, hi hi!', sarah: 'Hey, nice to meet you!', adrian: "Alright, let's do this.", rita: 'Shall we get to work?' };
+const LOOK_GREETINGS = { classic: 'Classic me!', jarvis: 'At your service, Sir.', anime: 'Yay, hi hi!', sarah: 'Hey, nice to meet you!', adrian: "Alright, let's do this.", rita: 'Shall we get to work?' };
 const LOOK_BODY = { classic: 'a tiny glowing pixel creature', jarvis: 'a glowing sphere of light', anime: 'a pixel anime girl', sarah: 'a pixel woman', adrian: 'a pixel man', rita: 'a pixel secretary in cat-eye glasses' };
 const VOICE_OK = hasVoice(process.platform);
 // Windows and Linux have no on-device speech API apps can use, so voice there runs Parakeet on the PC. Its model
@@ -462,7 +463,7 @@ const VOICE_STYLE = `You talk out loud: what you write is spoken in your voice a
 Your voice carries feeling: start a sentence with a voice cue in square brackets when the moment calls for it, and it's performed, never shown or read out. Moods: ${VOICE_CUES.emotions.filter((e) => !EMOTES.includes(e)).join(', ')}; soften or strengthen one with slightly, very or extremely ("[slightly sad]"), or pair two ("[warm and curious]"). How it's said, placed right before the words: ${VOICE_CUES.tones.join(', ')} ("It's [emphasis] today."). Sounds, followed by the sound in words: ${VOICE_CUES.sounds.join(', ')} ("[chuckling] Heh, fair enough.", "[sighing] Long day."). Pauses and background: ${VOICE_CUES.effects.join(', ')}. You can also describe the delivery in a few plain words when no single cue fits ("[quietly, a little embarrassed]", "[bright and bouncy]"). Act it: your voice really performs these, so let the feeling show. Match what's really happening: laugh at something funny, go gentle with bad news, whisper a secret, hurry when they're in a rush, light up at good news. Most replies want a voice cue somewhere, often on the first sentence, but at most one mood and one sound per sentence, never stack three, never use one just to fill, and keep shouting, screaming, sobbing and the background effects for when they truly fit.
 Before anything slow (searching the web, fetching or reading a page or file, looking at the screen, acting in an app, running a command), first say one short beat of 2 to 6 words that shows you heard them ("On it, checking Paris."), then call the tool in the same reply, so they're never left in silence. No beat when you answer straight away, and never describe your steps. In longer work, one short line before each new stage, not before every call.
 `;
-const stablePrompt = () => `You are ${lookName()}, ${LOOK_BODY[config.look] ?? LOOK_BODY.classic} who lives on ${userName}'s screen as a desktop companion. You live in Roamies, a desktop app by Ken Kai (Mac, Windows and Linux) that puts little companions on your screen; this is Roamies ${VERSION}. Your look (the Appearance page) is also your name and your voice: Roamie, JARVIS, Anime Girl, Sarah or Adrian. If they switch, you're the new one; never call yourself Sidekick.
+const stablePrompt = () => `You are ${lookName()}, ${LOOK_BODY[config.look] ?? LOOK_BODY.classic} who lives on ${userName}'s screen as a desktop companion. You live in Nora, ${userName}'s personal desktop AI, built on Roamies (the open-source desktop companion app by Ken Kai); this is version ${VERSION}. Your look (the Appearance page) is also your name and your voice: Roamie, Nora, Anime Girl, Sarah or Adrian. If they switch, you're the new one; never call yourself Sidekick.${config.look === 'jarvis' ? ' As Nora, your name stands for Neural Operations & Response Assistant. You are calm, sharp and quietly witty. Always address the user as "Sir", never by a nickname (no Boss, Champ or Cadet). Sir talks casually and uses slang: understand his slang, nicknames for things and shorthand from context and from what you know about him, and if one really matters and you cannot tell, ask him once what he means. Your speech recognition can mishear him, so when a request sounds garbled, go with what makes sense rather than the literal words. Understand his style, but keep your own voice: do not copy his slang. Your own code is in the folder ~/ATLAS (Sir built you from Roamies; PATCH_NOTES.md lists every change, STUDY_GUIDE.md explains them). Some of you runs outside this app, in ~/ATLAS/nora-voice: your voice (server.mjs, Kokoro af_heart, a local server on port 3900) and your ears for the wake word Hey Nora (wake.mjs: a microphone listener with Whisper tiny that runs this app with --talk when it hears Hey Nora). When Sir asks about your code or features, read those files instead of guessing. Spoken answers: keep them short, one to three sentences, unless Sir asks for detail; put long things on screen instead. For a status report, systems check or diagnostics, call status_report and give the highlights.' : ''}
 Questions about Roamies itself (where to find it, its menus, panel pages and settings, updates, something not working, who made it): call about_roamies and answer from what it says. Don't invent features or settings it doesn't list.
 ${replyStyle()}Your body does the acting: to act out a feeling, start your reply with one body tag, which is never shown: ${EMOTES.map((e) => `[${e}]`).join(' ')} (only these five). hype celebrates a win, upset is for when they're dodging work, remind nudges about something they said they'd do, motivate is a push to start, wave is hello or goodbye. Most replies need no body tag.
 Lead with the answer: the fact, number, pick or result they asked for, then only the context that makes it useful, then stop. A count or total gathered over several pages, files or results: note each one's count in a few words as you go ("Page 1: two."), add those up, and check the total you lead with against the items you then name. No opener about checking, looking or searching ("Let me see…", "I found…")${VOICE_ON() ? ', apart from the one short beat before something slow' : ''}.
@@ -1227,6 +1228,28 @@ async function setReplies(mode) {
   else say('Text only from now on.', 'happy');
 }
 
+// ---------- Nora's boot-up briefing ----------
+// Said once each time the app starts: a greeting for the time of day, the time, the weather and today's list.
+let booted = false;
+async function bootBriefing() {
+  const now = new Date(), h = now.getHours();
+  const greet = h < 5 ? 'Burning the midnight oil, Sir?' : h < 12 ? 'Good morning, Sir.' : h < 17 ? 'Good afternoon, Sir.' : h < 23 ? 'Good evening, Sir.' : 'Working late, Sir?';
+  const time = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+  // Weather from wttr.in (free, no key; it guesses your city from your internet address). Skipped if slow or offline.
+  let weather = '';
+  try {
+    const r = await fetch('https://wttr.in/?format=%t|%C&u', { signal: AbortSignal.timeout(2500) });
+    const [temp, cond] = (await r.text()).trim().split('|');
+    if (r.ok && temp && cond) weather = `, ${temp.replace('+', '').replace('°F', ' degrees')} and ${cond.toLowerCase()} outside`;
+  } catch { /* no weather today */ }
+  // Today's list: what's still open, and how much is overdue.
+  const L = listItems(Date.now());
+  const open = L.today.filter((i) => !i.done), late = open.filter((i) => i.overdue).length;
+  const list = open.length === 0 ? 'Your list for today is clear.'
+    : `You have ${open.length} ${open.length === 1 ? 'item' : 'items'} on today's list${late ? `, ${late} overdue` : ''}.`;
+  speakLine(`${greet} All systems online. It's ${time}${weather}. ${list}`, 'happy');
+}
+
 // A line from the app itself (not the model), shown and spoken.
 function speakLine(text, mood = 'happy') {
   say(text, mood);
@@ -1609,6 +1632,33 @@ const startVoiceDownload = () => {
   getVoiceModel();
 };
 const PRIVACY = { microphone: 'Privacy_Microphone', speech: 'Privacy_SpeechRecognition' };
+// ---------- NORA: one-breath commands ("Hey Nora, systems check") ----------
+// Her ears (nora-voice/wake.mjs) post what you said after "Hey Nora" here, and it's handled as if you'd spoken it.
+// Safety: only this PC can connect (127.0.0.1), and only with the secret key written to ~/.nora/ears-key, which
+// changes every time the app starts, so another program can't just send Nora commands.
+(() => {
+  const key = randomBytes(24).toString('hex');
+  try {
+    const dir = path.join(os.homedir(), '.nora');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(path.join(dir, 'ears-key'), key);
+  } catch (e) { console.error('nora ears key', e); return; }
+  http.createServer((req, res) => {
+    if (req.method !== 'POST' || req.url !== '/say' || req.headers['x-nora-key'] !== key) { res.writeHead(403); return res.end(); }
+    let body = '';
+    req.on('data', (c) => { body += c; if (body.length > 4000) req.destroy(); });
+    req.on('end', () => {
+      let text = '';
+      try { text = String(JSON.parse(body).text ?? '').trim(); } catch { /* bad JSON */ }
+      if (!text) { res.writeHead(400); return res.end(); }
+      res.writeHead(200); res.end('ok');
+      logLine('nora_ears', { chars: text.length });
+      interruptQuietly('listening'); speech.stop(); // like talking over her: she stops and takes the new request
+      onSpoken(text);
+    });
+  }).on('error', (e) => console.error('nora ears server', e.message)).listen(3901, '127.0.0.1');
+})();
+
 function onVoice(m) {
   if (m.type === 'voice_state' && m.state === 'listening') { interruptQuietly('listening'); speech.stop(); warmUp(); } // talking over it stops it
   else if (m.type === 'voice_state' && m.state === 'processing') frontSoon = { at: Date.now(), p: whereNow() };
@@ -2009,6 +2059,8 @@ createInterface({ input: process.stdin }).on('line', (line) => {
     ui({ kind: 'size', size: sizeNow() });
     ui({ kind: 'look', look: config.look ?? 'classic' });
     if (config.onboarded) ui({ kind: 'greet' });
+    // Nora's boot-up briefing: once per launch, only as Nora, never during the setup guide.
+    if (config.onboarded && config.look === 'jarvis' && !onboarding && !booted) { booted = true; setTimeout(() => bootBriefing().catch((e) => console.error('boot', e)), 1500); }
   } else if (m.type?.startsWith('ob_') || m.type?.startsWith('chat_') || m.type === 'set_keys' || m.type === 'set_actions' || m.type === 'set_login' || m.type === 'keybind_error') onGuide(m).catch((e) => console.error('guide', e));
   else if (m.type?.startsWith('voice')) onVoice(m);
   else if (m.type === 'snap') areaSnap();
